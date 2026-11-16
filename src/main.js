@@ -410,6 +410,7 @@ addEventListener('keydown', e => {
   if (!playing) return;
   sound();
   if (e.repeat) return;
+  if (e.code === 'Escape') menu(true);
   if (e.code >= 'Digit0' && e.code <= 'Digit9') go((+e.code[5] + 9) % 10);
   else if (e.code === 'KeyZ') dive(1 - WORLD);
   else if (e.code === 'KeyF') { tour = !tour; nanoT = -1; if (tour && !WORLD) tourS = nearestTour(); }
@@ -421,7 +422,9 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 addEventListener('wheel', e => { if (playing) SPD = clamp(SPD * (e.deltaY < 0 ? 1.18 : .85), .25, 5); }, { passive: true });
-cvs.addEventListener('click', () => { if (playing && !document.pointerLockElement && FINE.matches) cvs.requestPointerLock?.(); });
+// taking hold of the mouse can be refused (an embedded page, a window in the background): then the keys still fly, and Esc still opens the menu
+const grab = () => { try { cvs.requestPointerLock?.()?.catch?.(() => {}); } catch {} };
+cvs.addEventListener('click', () => { if (playing && !document.pointerLockElement && FINE.matches) grab(); });
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== cvs) return;
   yawT += e.movementX * .0022; pitchT = clamp(pitchT - e.movementY * .0022, -1.5, 1.5);
@@ -697,7 +700,7 @@ function syncMenu() {
 }
 function start() {
   menu(false); sound(); tour = false;
-  if (FINE.matches) cvs.requestPointerLock?.();
+  if (FINE.matches) grab();
 }
 $('go').onclick = start;
 for (const b of $('q').children) b.onclick = () => { store('sv-q', b.dataset.q); location.reload(); };
