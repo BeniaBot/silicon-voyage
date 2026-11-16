@@ -7,7 +7,7 @@ import { transformSync } from 'esbuild';
 
 const FILES = ['quality.js', 'math.js', 'world.js', 'shaders.js', 'nano.js', 'audio.js', 'main.js'];
 const dev = process.argv.includes('--dev');
-const read = f => readFileSync(new URL('src/' + f, import.meta.url), 'utf8');
+const read = f => readFileSync(new URL('src/' + f, import.meta.url), 'utf8').replaceAll(String.fromCharCode(13), '');   // the same bytes on every system
 
 // WGSL inside /*wgsl*/`...`: drop comments, collapse whitespace, remove spaces around punctuation (not inside ${...})
 const squeeze = s => s.split(/(\$\{[^}]*\})/).map((p, i) => i & 1 ? p : p

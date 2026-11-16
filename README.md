@@ -5,6 +5,8 @@
 
 **[▶ להפעלה בדפדפן · Run it in your browser](https://beniabot.github.io/silicon-voyage/)**
 
+[![The flight in: from the circuit board, over the package wall, into the chip](.github/screenshots/flight.webp)](https://beniabot.github.io/silicon-voyage/)
+
 ![The chip package on its circuit board, seen from outside](.github/screenshots/board.jpg)
 
 **[עברית](#עברית) · [English](#english)**

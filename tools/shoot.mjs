@@ -1,6 +1,6 @@
 // Renders the world in a separate Chrome with its own empty profile (nothing of the user's is touched)
 // and saves screenshots of the stations, or runs the 45 s benchmark flight.
-//   node tools/shoot.mjs [--out shots] [--poses 1,2,3] [--q 1] [--t 12] [--w 1600] [--h 900] [--extra "&scale=.75"] [--bench] [--headful]
+//   node tools/shoot.mjs [--out shots] [--poses 1,2,3] [--q 1] [--t 12] [--w 1600] [--h 900] [--extra "&scale=.75"] [--bench] [--tour 18] [--clip 6,11,12,4] [--headful]
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -111,6 +111,14 @@ if (has('at')) {   // free camera positions to try: "x,y,z,yaw,pitch;..."
 if (has('flicker')) {   // pairs of frames a hair apart (0.02 units, well under a pixel for most of the view) along the tour: tools/flicker.py turns them into a shimmer map
   const n = +arg('flicker', 6), len = await ev('__sv.tour(0)');
   for (let k = 0; k < n; k++) for (const j of [0, 1]) { await ev(`__sv.tour(${(k + .37) * len / n + j * .02})`); await shoot(`fl${k}${'ab'[j]}.png`); }
+  flush(); done(0);
+}
+if (has('clip')) {   // consecutive frames along the tour for a short moving preview: --clip "start second,length,frames per second,speed"
+  const [t0, secs, fps, sp] = arg('clip', '6,11,12,4').split(',').map(Number);
+  for (let k = 0; k < secs * fps; k++) {
+    await ev(`__sv.setT(${+T + k / fps}); __sv.tour(__sv.tourT(${t0 + k * sp / fps}))`);
+    await shoot(`clip${String(k).padStart(3, '0')}.jpg`);
+  }
   flush(); done(0);
 }
 if (has('tour')) {   // frames spread evenly along the guided tour
