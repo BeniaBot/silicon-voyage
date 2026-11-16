@@ -78,7 +78,7 @@
 | `M`, `H`, `Esc` | השתקה, הסתרת כיתובים, תפריט |
 
 כדי לצאת מהשבב פשוט טסים למעלה, מעל הקיר. ככל שמתרחקים, הטיסה נעשית מהירה יותר.<br>
-בתפריט: שלוש רמות איכות, מהירות טיסה (מ"איטית" ועד "טיל"), עומק שדה, צליל ושפה. במסך מגע: חצי שמאלי לתנועה, חצי ימני למבט.<br>
+בתפריט: שלוש רמות איכות, מהירות טיסה (מ"איטית" ועד "טיל"), עומק שדה, צליל ושפה. במסך מגע: חצי שמאלי לתנועה, חצי ימני למבט, וכפתור בפינה שמחזיר לתפריט.<br>
 רוצים את זה אצלכם? [מורידים קובץ אחד](https://github.com/BeniaBot/silicon-voyage/releases/latest), לוחצים עליו פעמיים, וזה רץ גם בלי אינטרנט.
 
 ### 🧩 איך זה בנוי
@@ -108,6 +108,7 @@ node tools/shoot.mjs --bench --w 1920 --h 1080   # 45 s flight, GPU timings
 node tools/shoot.mjs --check                     # collisions, audio level, focus
 node tools/shoot.mjs --fly                       # flies into every part with the keys held down
 node tools/shoot.mjs --hud 2                     # the screen as a visitor sees it
+node tools/shoot.mjs --touch --w 390 --h 844     # a phone: the menu, fingers, the menu button
 ```
 
 <div dir="rtl">
@@ -184,7 +185,7 @@ The guided tour goes through all of them in one unbroken flight of about four mi
 | `M`, `H`, `Esc` | Mute, hide the labels, menu |
 
 To leave the chip, just fly up and over the wall. The further out you are, the faster you fly.<br>
-The menu has three quality levels, a flying speed (from "slow" to "rocket"), depth of field, sound and language. On a touch screen: left half moves, right half looks.<br>
+The menu has three quality levels, a flying speed (from "slow" to "rocket"), depth of field, sound and language. On a touch screen: left half moves, right half looks, and a button in the corner brings the menu back.<br>
 Want it on your own machine? [Download one file](https://github.com/BeniaBot/silicon-voyage/releases/latest), double-click it, and it runs with no internet at all.
 
 ### 🧩 How it works
@@ -212,6 +213,7 @@ node tools/shoot.mjs --bench --w 1920 --h 1080   # 45 s flight, GPU timings
 node tools/shoot.mjs --check                     # collisions, audio level, focus
 node tools/shoot.mjs --fly                       # flies into every part with the keys held down
 node tools/shoot.mjs --hud 2                     # the screen as a visitor sees it
+node tools/shoot.mjs --touch --w 390 --h 844     # a phone: the menu, fingers, the menu button
 ```
 
 The tools run the world in a separate, hidden Chrome and save the pictures in `shots`.

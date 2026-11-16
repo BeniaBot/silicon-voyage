@@ -38,6 +38,7 @@ h3{font-size:12.5px;font-weight:600;color:var(--dim);letter-spacing:.04em;margin
 .st{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:7px}
 .st button{text-align:start;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025);font-size:14px;transition:background .15s,border-color .15s}
 .st button:hover{background:rgba(255,199,102,.08);border-color:rgba(255,199,102,.4)}
+#st button:first-child{grid-column:1/-1}
 #st2 button:hover{background:rgba(190,150,255,.1);border-color:rgba(190,150,255,.45)}
 .rows{margin-top:6px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.022);overflow:hidden}
 .row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--line)}
@@ -60,7 +61,7 @@ kbd{display:inline-block;min-width:22px;padding:0 6px;margin-inline-end:3px;bord
   font:12px/1.6 Consolas,"Cascadia Mono",monospace;color:var(--fg);text-align:center;background:rgba(255,255,255,.05);direction:ltr}
 #hud{position:fixed;inset:0;inset:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);pointer-events:none;z-index:2;transition:opacity .5s}
 #hud.off,#hud.dim{opacity:0}
-#rg{position:absolute;top:16px;inset-inline-start:18px;max-width:min(450px,78vw);padding:9px 14px 11px;border-radius:13px;background:rgba(4,8,16,.56);opacity:0;transform:translateY(-6px);transition:opacity 1s,transform 1s;text-shadow:0 1px 10px rgba(0,0,0,.9)}
+#rg{position:absolute;top:16px;inset-inline-start:18px;max-width:min(450px,84vw);padding:9px 14px 11px;border-radius:13px;background:rgba(4,8,16,.68);opacity:0;transform:translateY(-6px);transition:opacity 1s,transform 1s;text-shadow:0 1px 10px rgba(0,0,0,.9)}
 #rg.on{opacity:1;transform:none}
 #rgn{display:block;font-size:23px;font-weight:650}
 #rgd{display:block;color:#d3ddec;font-size:15.5px;margin-top:2px}
@@ -75,7 +76,7 @@ kbd{display:inline-block;min-width:22px;padding:0 6px;margin-inline-end:3px;bord
 #mb{position:absolute;top:14px;inset-inline-end:14px;width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:rgba(4,8,16,.56);font-size:21px;pointer-events:auto}
 .touch,#mb{display:none}
 @media (max-width:640px),(max-height:480px){#tip,#map{display:none}}
-@media (pointer:coarse){#tip,.keys,.row .kb{display:none}.touch,#mb{display:block}.touch{color:var(--dim);font-size:13.5px}}
+@media (pointer:coarse){#tip,.keys,.row .kb{display:none}.touch,#mb{display:block}#rg{max-width:min(450px,100vw - 100px)}.touch{color:var(--dim);font-size:13.5px}}
 </style>
 </head>
 <body>
@@ -85,7 +86,7 @@ kbd{display:inline-block;min-width:22px;padding:0 6px;margin-inline-end:3px;bord
   <div id="alt"></div>
   <div id="tip" data-en="Esc for the menu · Z dives into a transistor · H hides the labels">Esc לתפריט · Z צולל לתוך טרנזיסטור · H מסתיר כיתובים</div>
   <div id="map"><canvas id="mapc" width="264" height="264"></canvas><i id="mk"></i></div>
-  <button id="mb">☰</button>
+  <button id="mb" aria-label="Menu">☰</button>
 </div>
 <div id="fade"></div>
 <div id="menu" class="full hide">
