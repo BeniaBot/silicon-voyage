@@ -3,7 +3,7 @@
 > מתחילים מעל לוח מעגל, טסים פנימה אל השבב, וצוללים עוד קומה: לתוך טרנזיסטור אחד, בין האטומים.<br>
 > Start above a circuit board, fly into the chip, then dive one step further: inside a single transistor, among the atoms.
 
-**[▶ להפעלה בדפדפן · Run it in your browser](https://beniabot.github.io/silicon-voyage/)**
+**[▶ להפעלה בדפדפן · Run it in your browser](https://beniabot.github.io/silicon-voyage/)** · **[⬇ להורדה · Download](https://github.com/BeniaBot/silicon-voyage/releases/latest)**
 
 [![The flight in: from the circuit board, over the package wall, into the chip](.github/screenshots/flight.webp)](https://beniabot.github.io/silicon-voyage/)
 
@@ -78,7 +78,8 @@
 | `M`, `H`, `Esc` | השתקה, הסתרת כיתובים, תפריט |
 
 כדי לצאת מהשבב פשוט טסים למעלה, מעל הקיר. ככל שמתרחקים, הטיסה נעשית מהירה יותר.<br>
-בתפריט: שלוש רמות איכות, עומק שדה, צליל ושפה. במסך מגע: חצי שמאלי לתנועה, חצי ימני למבט.
+בתפריט: שלוש רמות איכות, מהירות טיסה (מ"איטית" ועד "טיל"), עומק שדה, צליל ושפה. במסך מגע: חצי שמאלי לתנועה, חצי ימני למבט.<br>
+רוצים את זה אצלכם? [מורידים קובץ אחד](https://github.com/BeniaBot/silicon-voyage/releases/latest), לוחצים עליו פעמיים, וזה רץ גם בלי אינטרנט.
 
 ### 🧩 איך זה בנוי
 
@@ -105,6 +106,8 @@ node tools/shoot.mjs                             # screenshots of the stations
 node tools/shoot.mjs --tour 20                   # frames along the tour, evenly spaced in time
 node tools/shoot.mjs --bench --w 1920 --h 1080   # 45 s flight, GPU timings
 node tools/shoot.mjs --check                     # collisions, audio level, focus
+node tools/shoot.mjs --fly                       # flies into every part with the keys held down
+node tools/shoot.mjs --hud 2                     # the screen as a visitor sees it
 ```
 
 <div dir="rtl">
@@ -115,7 +118,13 @@ node tools/shoot.mjs --check                     # collisions, audio level, focu
 
 * **הרעיון** - מתכון קטן שבונה עולם גדול. הקובץ לא מכיל את העולם, רק את ההוראות לבנות אותו.
 * **השיטה** - לבנות, לצלם מתחנות קבועות ולאורך מסלול, לתת למבקר שרואה רק תמונות, לתקן, ולמדוד ביצועים על המחשב שהעולם אמור לרוץ עליו.
-* **מי כתב** - וייב קודינג מלא, עם Claude.
+
+### 🙌 קרדיטים
+
+* **רעיון, בימוי והחלטות** - [BeniaBot](https://github.com/BeniaBot). וייב קודינג מלא.
+* **קוד, עיצוב, שיידרים וצליל** - **Claude Fable 5.2** של Anthropic, בתוך Claude Code. הוא כתב את העולם, את הכלים שבודקים אותו, וגם את הדף הזה.
+* **הטיוטה הראשונה** - שני הסבבים הראשונים נכתבו עם Claude Opus 5.5. משם Fable 5.2 עבד על הכול מקצה לקצה והרחיב: הטרנזיסטור, הלוח שבחוץ, הסיור, העברית והאנגלית.
+* **ביקורת** - מבקרים נפרדים (Claude Sonnet) שרואים רק צילומי מסך. בלי קוד ובלי הסברים.
 * **רישיון** - [MIT](LICENSE): מותר להשתמש, לשנות ולהפיץ.
 
 > 📌 **שורה תחתונה:** פחות מ־100 קילובייט, שלושה קני מידה, אפס קבצים מצורפים. תלחצו על הקישור ותטוסו.
@@ -175,7 +184,8 @@ The guided tour goes through all of them in one unbroken flight of about four mi
 | `M`, `H`, `Esc` | Mute, hide the labels, menu |
 
 To leave the chip, just fly up and over the wall. The further out you are, the faster you fly.<br>
-The menu has three quality levels, depth of field, sound and language. On a touch screen: left half moves, right half looks.
+The menu has three quality levels, a flying speed (from "slow" to "rocket"), depth of field, sound and language. On a touch screen: left half moves, right half looks.<br>
+Want it on your own machine? [Download one file](https://github.com/BeniaBot/silicon-voyage/releases/latest), double-click it, and it runs with no internet at all.
 
 ### 🧩 How it works
 
@@ -200,6 +210,8 @@ node tools/shoot.mjs                             # screenshots of the stations
 node tools/shoot.mjs --tour 20                   # frames along the tour, evenly spaced in time
 node tools/shoot.mjs --bench --w 1920 --h 1080   # 45 s flight, GPU timings
 node tools/shoot.mjs --check                     # collisions, audio level, focus
+node tools/shoot.mjs --fly                       # flies into every part with the keys held down
+node tools/shoot.mjs --hud 2                     # the screen as a visitor sees it
 ```
 
 The tools run the world in a separate, hidden Chrome and save the pictures in `shots`.
@@ -208,7 +220,13 @@ The tools run the world in a separate, hidden Chrome and save the pictures in `s
 
 * **The idea** - a small recipe that builds a big world. The file does not hold the world, only the instructions for building it.
 * **The method** - build, photograph from fixed stations and along a path, hand the pictures to a critic who sees nothing else, fix, and measure performance on the machine the world is meant to run on.
-* **Who wrote it** - vibe coding all the way, with Claude.
+
+### 🙌 Credits
+
+* **Idea, direction and decisions** - [BeniaBot](https://github.com/BeniaBot). Vibe coding all the way.
+* **Code, design, shaders and sound** - **Claude Fable 5.2** by Anthropic, working in Claude Code. It wrote the world, the tools that test it, and this page too.
+* **The first draft** - the first two passes were written with Claude Opus 5.5. From there Fable 5.2 reworked everything end to end and took it further: the transistor, the board outside, the tour, Hebrew and English.
+* **Critique** - separate reviewers (Claude Sonnet) who see only screenshots. No code, no explanations.
 * **License** - [MIT](LICENSE): use it, change it, share it.
 
 > 📌 **Bottom line:** under 100 KB, three scales, zero attached files. Click the link and fly.

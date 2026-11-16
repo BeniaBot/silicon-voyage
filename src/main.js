@@ -27,6 +27,9 @@ await say(tr('מחשבים אור וצל רכים…', 'Working out soft light a
 const AOD = bakeAO(), FLM = floorMap();
 await say(tr('מכינים את השבב למגע…', 'Getting the chip ready to touch…'), .5);
 const GRID = buildGrid();
+// what can be bumped into outside the package: the board and everything that stands on it (not the flat ink and copper)
+const OUTB = [];
+for (let i = NOUT0; i < NI; i++) if (i === NOUT0 || IF[i * IST + 5] > 1.5) OUTB.push(i);
 await say(tr('מעלים לכרטיס הגרפי…', 'Uploading to the graphics card…'), .6);
 
 const mkbuf = (data, usage) => { const b = dev.createBuffer({ size: ceil(data.byteLength / 4) * 4, usage: usage | BU.COPY_DST }); dev.queue.writeBuffer(b, 0, data); return b; };
@@ -330,7 +333,7 @@ function collide(p) {
     const c = gz * GN + gx;
     for (let k = GRID.st[c]; k < GRID.st[c + 1]; k++) { const i = GRID.it[k]; if (STAMP[i] !== stampN) { STAMP[i] = stampN; pushBox(i, p); } }
   }
-  for (let i = NOUT0; i < NI; i++) if (STAMP[i] !== stampN) pushBox(i, p);
+  for (const i of OUTB) if (STAMP[i] !== stampN) pushBox(i, p);
   for (const w of BOND) {   // tubes: push out of the nearest point on each capsule
     if (hypot(p[0] - w.c[0], p[1] - w.c[1], p[2] - w.c[2]) > w.R + RAD) continue;
     const P = w.p, R = w.r;
@@ -362,7 +365,7 @@ const inBox = (i, p) => {
 function solid(p) {
   const gx = floor((p[0] - G0) / GS), gz = floor((p[2] - G0) / GS);
   if (gx >= 0 && gx < GN && gz >= 0 && gz < GN) { const c = gz * GN + gx; for (let k = GRID.st[c]; k < GRID.st[c + 1]; k++) if (inBox(GRID.it[k], p)) return true; }
-  for (let i = NOUT0; i < NI; i++) if (inBox(i, p)) return true;
+  for (const i of OUTB) if (inBox(i, p)) return true;
   for (const w of BOND) if (w.f && p[1] > w.p[1] && p[1] < w.p[w.p.length - 2] && hypot(p[0] - w.p[0], p[2] - w.p[2]) < max(...w.r)) return true;
   return false;
 }
@@ -381,7 +384,7 @@ function rayHit(ox, oy, oz, dx, dy, dz, far) {
     }
     if (tx < tz) { t0 = tx; tx += ex; gx += sx; } else { t0 = tz; tz += ez; gz += sz; }
   }
-  for (let i = NOUT0; i < NI; i++) if (STAMP[i] !== stampN) best = min(best, slab(i, ox, oy, oz, dx, dy, dz));
+  for (const i of OUTB) if (STAMP[i] !== stampN) best = min(best, slab(i, ox, oy, oz, dx, dy, dz));
   return best;
 }
 // where a ray enters box i (1e30 if it misses)
@@ -397,7 +400,7 @@ function slab(i, ox, oy, oz, dx, dy, dz) {
 
 // ---------------------------------------------------------------- input
 const keys = new Set();
-let playing = false, SPD = 1, photo = false;
+let playing = false, SPD = 1, photo = false, BASE = +store('sv-spd') || 1;   // SPD: the wheel; BASE: the speed chosen in the menu
 let DOF = store('sv-dof') !== null ? store('sv-dof') === '1' : LV < 2;
 const stick = { id: -1, x: 0, y: 0, dx: 0, dy: 0 }, lookT = { id: -1, x: 0, y: 0 };
 const FINE = matchMedia('(pointer:fine)');
@@ -478,12 +481,13 @@ function move(dt) {
     yawT += (ty - yawT) * k; pitchT += (tourPitch() - pitchT) * k;
     vel.fill(0);
   } else {
-    const sp = (K('ShiftLeft') || K('ShiftRight') ? 30 : 7) * (WORLD ? .4 : big) * SPD / max(1, hypot(mf, mr, mu));
+    const sp = (K('ShiftLeft') || K('ShiftRight') ? 30 : 7) * (WORLD ? .4 : big) * SPD * BASE / max(1, hypot(mf, mr, mu));
     const k = 1 - exp(-dt * 3.5);
     vel[0] += ((FX * mf + RX * mr) * sp - vel[0]) * k;
     vel[1] += ((FY * mf + mu) * sp - vel[1]) * k;
     vel[2] += ((FZ * mf + RZ * mr) * sp - vel[2]) * k;
-    const n = max(1, ceil(hypot(vel[0], vel[1], vel[2]) * dt / (.2 * (WORLD ? 1 : big))));
+    // short steps among the thin wires; out on the board, where nothing is thinner than a resistor, longer ones
+    const n = max(1, ceil(hypot(vel[0], vel[1], vel[2]) * dt / (WORLD ? .2 : max(.2 * big, outf() > 40 ? 8 : .2))));
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < 3; j++) { PREV[j] = cam[j]; cam[j] += vel[j] * dt / n; }
       if (WORLD) { ncollide(cam); continue; }
@@ -502,14 +506,14 @@ function move(dt) {
 // autofocus, like an eye at the eyepiece: five rays through the middle of the view, averaged in diopters (1 / distance),
 // and the lens follows slowly
 let focD = .05;
-const FO = [0, 0, .09, .06, -.09, .06, .09, -.06, -.09, -.06];
+const FO = [0, 0, .09, .06, -.09, .06, .09, -.06, -.09, -.06], FD = new Float64Array(5);
 function focus(dt) {
-  let s = 0;
   for (let i = 0; i < 10; i += 2) {
     const u = FO[i], v = FO[i + 1], dx = FX + RX * u + UX * v, dy = FY + UY * v, dz = FZ + RZ * u + UZ * v, l = hypot(dx, dy, dz);
-    s += 1 / (WORLD ? nhit(cam[0], cam[1], cam[2], dx / l, dy / l, dz / l) : rayHit(cam[0], cam[1], cam[2], dx / l, dy / l, dz / l, 20000));
+    FD[i >> 1] = 1 / (WORLD ? nhit(cam[0], cam[1], cam[2], dx / l, dy / l, dz / l) : rayHit(cam[0], cam[1], cam[2], dx / l, dy / l, dz / l, 20000));
   }
-  focD = snap ? s / 5 : focD + (s / 5 - focD) * (1 - exp(-dt * 3.5));
+  FD.sort();   // the middle one of the five: a single wire crossing the view does not pull the focus onto itself
+  focD = snap ? FD[2] : focD + (FD[2] - focD) * (1 - exp(-dt * 5));
 }
 
 // ---------------------------------------------------------------- per-frame uniforms
@@ -535,7 +539,7 @@ function uniforms() {
   for (let i = 0; i < 4; i++) UF[79 + i * 4] = GLOW[i][3] * (.8 + .2 * sin(T * .9 + i * 1.7));   // the cores' heat breathes
   dev.queue.writeBuffer(ubuf, 0, UF);
   PPF[0] = WORLD ? .95 : 1.15 - .25 * (1 - UF[54]); PPF[1] = WORLD ? .06 : .04; PPF[2] = RAYS && !WORLD ? 1 : 0; PPF[3] = T; PPF[4] = CW; PPF[5] = CH; PPF[6] = RW; PPF[7] = RH;
-  PPF[8] = focD; PPF[9] = DOF ? 24 * max(1, .05 / focD) * CH / 1080 : 0; PPF[10] = NEAR; PPF[11] = 6 * CH / 1080;
+  PPF[8] = focD; PPF[9] = DOF ? 18 * max(1, .05 / focD) * CH / 1080 : 0; PPF[10] = NEAR; PPF[11] = 4.5 * CH / 1080;
   dev.queue.writeBuffer(ppbuf, 0, PPF);
 }
 
@@ -624,7 +628,7 @@ function dynres(now) {
   gpuAcc = gpuN = 0; ftAcc = ftN = 0;
   if (FIXS) return;
   let s = SCALE;
-  if (g > hi) s = max(.5, s * clamp(sqrt(13 / g), .8, .96)); else if (g < lo) s = min(SMAX, s * 1.05);
+  if (g > hi) s = max([.7, .65, .5][LV], s * clamp(sqrt(13 / g), .8, .96)); else if (g < lo) s = min(SMAX, s * 1.05);
   s = round(s * 20) / 20;
   if (s !== SCALE) { SCALE = s; targets(); }
 }
@@ -662,7 +666,7 @@ function hud() {
   else if (performance.now() - zoneT > 7000) $('rg').classList.remove('on');
   $('alt').textContent = (WORLD ? (-cam[1] * .136).toFixed(1) + tr(' ננומטר מתחת לשער', ' nanometres below the gate')
     : cam[1] > 250 ? tr('גובה ', 'Height ') + (cam[1] / 1000).toFixed(2) + tr(' מ"מ מעל הלוח', ' mm above the board')
-    : tr('גובה ', 'Height ') + max(0, cam[1]).toFixed(1) + tr(' מיקרון · ', ' microns · ') + layerName(cam[1])) + (abs(SPD - 1) > .05 ? tr(' · מהירות ×', ' · speed ×') + SPD.toFixed(1) : '');
+    : tr('גובה ', 'Height ') + max(0, cam[1]).toFixed(1) + tr(' מיקרון · ', ' microns · ') + layerName(cam[1])) + (abs(SPD * BASE - 1) > .05 ? tr(' · מהירות ×', ' · speed ×') + (SPD * BASE).toFixed(1) : '');
   BUSY = WORLD ? .5 : /ליבה|מטמון|רחוב|Core|cache|street/.test(n) ? 1.6 : .7;
   NEAR_AI = clamp(1 - hypot(cam[0] - 120, cam[2]) / 110, 0, 1);
   $('map').style.opacity = WORLD || outf() > 60 ? 0 : .9;
@@ -688,6 +692,7 @@ function syncMenu() {
   for (const b of $('q').children) b.classList.toggle('on', +b.dataset.q === LV);
   for (const b of $('snd').children) b.classList.toggle('on', +b.dataset.s === (MUTED ? 0 : 1));
   for (const b of $('dof').children) b.classList.toggle('on', +b.dataset.d === (DOF ? 1 : 0));
+  for (const b of $('spd').children) b.classList.toggle('on', +b.dataset.v === BASE);
   for (const b of $('lang').children) b.classList.toggle('on', (b.dataset.l === 'he') === HE);
 }
 function start() {
@@ -699,6 +704,7 @@ for (const b of $('q').children) b.onclick = () => { store('sv-q', b.dataset.q);
 for (const b of $('snd').children) b.onclick = () => { setMute(b.dataset.s === '0'); syncMenu(); };
 for (const b of $('lang').children) b.onclick = () => { store('sv-lang', b.dataset.l); location.reload(); };
 for (const b of $('dof').children) b.onclick = () => { DOF = b.dataset.d === '1'; store('sv-dof', b.dataset.d); syncMenu(); };
+for (const b of $('spd').children) b.onclick = () => { BASE = +b.dataset.v; store('sv-spd', b.dataset.v); syncMenu(); };
 POSES.forEach((p, i) => {
   const b = document.createElement('button');
   b.innerHTML = (i < 10 ? `<kbd>${(i + 1) % 10}</kbd> ` : '') + p[5];

@@ -119,6 +119,9 @@ struct VO { @builtin(position) pos: vec4f, @location(0) wp: vec3f, @location(1) 
   let s = smoothstep(u.prm.x, u.prm.x * 2.5, pxs(b, u.cam.xyz, u.prm.y));
   let mx = max(h.x, max(h.y, h.z));
   if (mx > med(h) * 3.) { h = select(h * s, h, h == vec3f(mx)); } else { h *= s; }
+  // every box is a hair bigger than its neighbours, each by its own amount: where two overlap, the same one always wins
+  // and their shared faces cannot flicker
+  h += vec3f(fract(f32(vis[ii]) * .618034) * .006);
   let f = vi >> 2u;
   let lp = corner(vi) * h;
   let sg = select(1., -1., (f & 1u) == 1u);
@@ -530,12 +533,11 @@ const W_DOF = /*wgsl*/`
 @vertex fn vfull(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   return vec4f(f32((i << 1u) & 2u) * 2. - 1., f32(i & 2u) * 2. - 1., 0., 1.);
 }
-fn soft(z: f32) -> f32 { return smoothstep(2.5, 9., pp[2].x * pp[2].z / max(z, 1e-9)) * pp[2].w * .24 * step(1e-4, pp[2].y); }
 // blur radius in screen pixels: how far (in diopters) this pixel's depth is from the focus plane; things in front blur less
 fn coc(uv: vec2f) -> f32 {
   let z = textureLoad(dep, vec2i(clamp(uv, vec2f(0.), vec2f(.9999)) * pp[1].zw), 0);
   let dq = z / pp[2].z - pp[2].x;
-  return max(min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w), soft(z));
+  return min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w);
 }
 @fragment fn fdof(@builtin(position) fp: vec4f) -> @location(0) vec4f {
   let uv = fp.xy * 2. / pp[1].zw; let px = .5 / pp[1].zw;
@@ -574,11 +576,16 @@ const W_POST = /*wgsl*/`
   let o = uv - .5;
   let ca = dot(o, o) * .004;   // a trace of colour fringing toward the corners, like a real objective
   var c = vec3f(textureSampleLevel(hdr, smp, uv - o * ca, 0.).r, textureSampleLevel(hdr, smp, uv, 0.).g, textureSampleLevel(hdr, smp, uv + o * ca, 0.).b);
+  // when the graphics card is busy the picture is drawn smaller than the screen and enlarged: the smaller it was drawn,
+  // the more its edges are sharpened here (never by more than a third of the local brightness, so nothing rings)
+  let tx = 1. / pp[1].zw;
+  let nb = (textureSampleLevel(hdr, smp, uv + vec2f(tx.x, 0.), 0.).rgb + textureSampleLevel(hdr, smp, uv - vec2f(tx.x, 0.), 0.).rgb
+    + textureSampleLevel(hdr, smp, uv + vec2f(0., tx.y), 0.).rgb + textureSampleLevel(hdr, smp, uv - vec2f(0., tx.y), 0.).rgb) * .25;
+  let lim = (c + .03) * .33;
+  c += clamp((c - nb) * mix(.3, 1.3, clamp((1. - pp[1].z / pp[1].x) * 2.5, 0., 1.)), -lim, lim);
   let z = textureLoad(dep, vec2i(min(uv * pp[1].zw, pp[1].zw - 1.)), 0);
   let dq = z / pp[2].z - pp[2].x;   // this pixel's own blur decides how much of the blurred image it takes
-  // (things many times farther than the focus plane are always a little soft: at that size their fine patterns would only crawl)
-  let sf = smoothstep(2.5, 9., pp[2].x * pp[2].z / max(z, 1e-9)) * pp[2].w * .24 * step(1e-4, pp[2].y);
-  c = mix(c, textureSampleLevel(dof, smp, uv, 0.).rgb, smoothstep(.5, 1.7, max(min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w), sf)));
+  c = mix(c, textureSampleLevel(dof, smp, uv, 0.).rgb, smoothstep(.5, 1.7, min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w)));
   c += textureSampleLevel(blm, smp, uv, 0.).rgb * pp[0].y;
   // the shafts are marched at low resolution with a jittered start. Enlarging them, each pixel averages the nine nearest
   // samples (which cancels the jitter) and listens mostly to those at its own depth, so a near beam in front of bright

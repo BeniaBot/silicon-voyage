@@ -98,7 +98,7 @@ if (has('check')) {   // collisions: points inside solids must come out, free po
   flush(); done(0);
 }
 if (has('fly')) {   // real flight with the keys held down, at the highest speed: the camera must stop at every solid thing on the board
-  await ev("document.getElementById('go').click(); for (let i = 0; i < 14; i++) dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }))");
+  await ev("document.querySelector('#spd button:last-child').click(); document.getElementById('go').click(); for (let i = 0; i < 14; i++) dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }))");
   const D = -1.5707, B = -15.6;   // straight down; hugging the board
   const cases = [['the neighbouring chip, from the south', [2150, 120, 900, 0, 0], 'z', -24.65],
     ['the neighbouring chip, from above', [2150, 1500, -500, 0, D], 'y', 268.35],
