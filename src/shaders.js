@@ -25,8 +25,8 @@ fn rot(p: vec3f, y: f32) -> vec3f { let c = cos(y); let s = sin(y); return vec3f
 fn pxs(b: I, cam: vec3f, proj: f32) -> f32 {
   let ex = select(b.h, vec3f(length(b.h)), b.yaw != 0.);
   let dd = length(max(abs(b.c - cam) - ex, vec3f(0.)));
-  let mm = b.m & 255u;   // lettering is made of thin rows that only read together, so it holds on four times longer
-  return 2. * med(b.h) * proj / max(dd, .05) * select(1., 4., mm == 19u || mm == 23u);
+  // lettering is made of thin rows that only read together, so it holds on four times longer
+  return 2. * med(b.h) * proj / max(dd, .05) * select(1., 4., (b.m & 0x1000000u) != 0u);
 }
 // unit cube corner for index 0..23: four per face, faces +x -x +y -y +z -z
 fn corner(vi: u32) -> vec3f {
@@ -60,8 +60,8 @@ fn room(d: vec3f) -> vec3f {
   for (var i = 0; i < 7; i++) {
     let a = f32(i) * .9 + .3; let e = .12 + .1 * f32(i % 3);
     let l = vec3f(cos(a) * cos(e), sin(e), sin(a) * cos(e));
-    let r = .005 + .005 * f32(i % 4);
-    c += mix(vec3f(1., .74, .46), vec3f(1., .88, .7), f32(i & 1)) * (1. - smoothstep(r * .35, r, 1. - dot(d, l))) * .2;
+    let r = .0014 + .0013 * f32(i % 4);
+    c += mix(vec3f(1., .74, .46), vec3f(1., .88, .7), f32(i & 1)) * (1. - smoothstep(r * .15, r, 1. - dot(d, l))) * .17;
   }
   return c;
 }
@@ -85,12 +85,12 @@ fn fogit(c: vec3f, d: vec3f, t: f32) -> vec3f {
 fn env(d: vec3f, r: f32) -> vec3f {
   let y = clamp(d.y, -1., 1.);
   var c = mix(vec3f(.012, .016, .024), vec3f(.05, .06, .066), (1. - smoothstep(-.6, -.05, y)) * (1. - r * .4));
-  c += vec3f(.15, .155, .165) * smoothstep(.02, .55, y) * (1. - smoothstep(.86, .95, y) * (1. - r));
+  c += vec3f(.15, .155, .165) * smoothstep(.02, .55, y) * (1. - smoothstep(.86, .95, y) * (1. - r) * u.prm.z);
   c += room(d) * (1. - u.prm.z) * smoothstep(-.2, .3, y) * .7;
   let w = .03 + r * .4;
   let led = mix(pow(.5 + .5 * cos(atan2(d.z, d.x) * 28.), 16.) * 3., 1., smoothstep(0., .3, r));
   let k = (acos(y) - .42) / w;
-  return c + vec3f(1., .97, .92) * 3. * (.03 / w) * exp(-k * k) * led;
+  return c + vec3f(1., .97, .92) * 3. * (.03 / w) * exp(-k * k) * led * mix(.2, 1., u.prm.z);   // out on the board the ring light is far away
 }
 `;
 
@@ -200,7 +200,7 @@ var<private> PCOL = array<vec3f, 4>(vec3f(.12, .75, 1.), vec3f(1., .45, .08), ve
   let pw = fwl[ea] + 1e-4;
   let bv = (1. - smoothstep(0., bw, mg[ea])) * (1. - smoothstep(.6, 1.6, pw / bw));
   var en = vec3f(0.); en[ea] = sign(v.lp[ea]);
-  n = normalize(n + rot(en, v.yw) * bv * select(.8, 0., mt == 23u));
+  n = normalize(n + rot(en, v.yw) * bv * select(.8, 0., (fl & 256u) != 0u && mt != 19u));
 
   var al = vec3f(.5); var me = 0.; var ro = .5; var f0o = vec3f(-1.); var ec = vec3f(0.); var pm = 0.;
   switch mt {
@@ -241,14 +241,15 @@ var<private> PCOL = array<vec3f, 4>(vec3f(.12, .75, 1.), vec3f(1., .45, .08), ve
       al = vec3f(.36, .37, .4); me = 1.; ro = .55;
       if (top) {
         let q = abs(v.lp.xz / v.h.xz); let fr = smoothstep(.8, .84, max(q.x, q.y));
-        al = mix(al * (.8 + .4 * vn(vec2f(v.lp.x * 7., v.lp.z * .6))), vec3f(.05, .055, .07), fr); ro = mix(.5, .4, fr); me = mix(1., .2, fr);
+        al = mix(al * (.9 + .2 * vn(vec2f(v.lp.x * 7., v.lp.z * .6))), vec3f(.05, .055, .07), fr); ro = mix(.5, .4, fr); me = mix(1., .2, fr);
         al *= 1. - .35 * (1. - smoothstep(.3, .5, length(v.lp.xz / v.h.xz - vec2f(.25, -.2))));
       }
     }
     case 5u: { al = vec3f(1., .766, .336); me = 1.; ro = .24; }
     case 6u: {   // ceramic, pressed in layers
-      let g = vn(p.xz * .9 + p.y * .7) * .5 + vn(vec2f(p.x + p.z, p.y) * .11) * .5;
-      al = vec3f(.085, .052, .042) * (.55 + .9 * g) * (.65 + .35 * smoothstep(-10., 90., p.y)); ro = .7;
+      let fg = 1. - smoothstep(.12, .5, max(dp.x, max(dp.y, dp.z)));   // the fine grain fades with distance instead of turning into a screen-door pattern
+      let g = mix(.5, vn(vec2f(p.x * .9 + p.y * .31, p.z * .9 - p.y * .43)), fg) * .4 + vn(vec2f(p.x + p.z, p.y) * .11) * .6;
+      al = vec3f(.085, .052, .042) * (.62 + .76 * g) * (.65 + .35 * smoothstep(-10., 90., p.y)); ro = .7;
       if (ax != 1u) { al *= 1. - aline(p.y / 5.2, .03, dp.y / 5.2) * .3; }
       if (abs(p.x) < 300. && abs(p.z) < 300.) { ec += vec3f(.018, .05, .06) * (1. - smoothstep(-10., 100., p.y)); }
     }
@@ -280,13 +281,26 @@ var<private> PCOL = array<vec3f, 4>(vec3f(.12, .75, 1.), vec3f(1., .45, .08), ve
     }
     case 16u: { al = vec3f(.5, .52, .55); ro = .6; me = .4; }
     case 17u: { al = vec3f(.42, .36, .28) * (1. - aline(p.y / 26., .1, dp.y / 26.) * .14); ro = .5; }
-    case 18u: {   // the probe needle: dark tungsten, turned on a lathe
-      al = vec3f(.5, .51, .55); me = 1.; ro = .26;
+    case 18u: {   // the probe needle: tungsten turned on a lathe, bright near the tip and dark where it leaves the package
+      let s = dot(p, vec3f(-.5, .6, .62)) / 1.3;
+      al = mix(vec3f(.5, .51, .55), vec3f(.1, .105, .12), smoothstep(60., 110., p.y) * u.prm.z); me = 1.;
+      ro = .2 + .16 * aline(s, .22, fwidth(s));
     }
     case 20u: {   // the circuit board: glass fibre under green solder mask
       al = vec3f(.011, .062, .03) * (.86 + .16 * vn(p.xz * .004) + .14 * vn(p.xz * .05)); ro = .34; f0o = vec3f(.085);
       if (top) {
-        al *= 1. + .1 * sin(p.x * .7) * sin(p.z * .7) * (1. - smoothstep(.3, 1.4, max(dp.x, dp.z)));
+        let fw = max(dp.x, dp.z);
+        al *= 1. + .1 * sin(p.x * .7) * sin(p.z * .7) * (1. - smoothstep(.3, 1.4, fw));
+        // copper under the mask, away from the package: a hatched ground pour here, bundles of traces there, a via now and then
+        let rg = vn(p.xz * .0009 + 3.7); let far = smoothstep(700., 1300., max(abs(p.x), abs(p.z)));
+        let ht = max(aline((p.x + p.z) / 34., .3, fw / 34.), aline((p.x - p.z) / 34., .3, fw / 34.));
+        let tr = aline(p.z / 30., .34, fw / 30.) * step(.5, vn(vec2f(p.x * .0005, floor(p.z / 30. + .5) * .37) + 9.));
+        al = mix(al, vec3f(.03, .15, .075), mix(tr * smoothstep(.3, .34, rg) * (1. - smoothstep(.56, .6, rg)), ht, smoothstep(.6, .64, rg)) * .5 * far);
+        let vc = floor(p.xz / 150.); let vd = length(p.xz - (vc + .5) * 150.);
+        if (h12(vc) > .84) {
+          let k = far * (1. - smoothstep(3., 10., fw));
+          al = mix(al, vec3f(.5, .4, .17), (1. - smoothstep(9., 9. + fw, vd)) * k); al = mix(al, vec3f(.012), (1. - smoothstep(3.5, 3.5 + fw, vd)) * k);
+        }
         al *= 1. - .7 * textureSampleLevel(bao, lin, p.xz / 8192. + .5, 0.).r;   // everything standing on the board shades its foot
       }
     }
@@ -316,7 +330,7 @@ var<private> PCOL = array<vec3f, 4>(vec3f(.12, .75, 1.), vec3f(1., .45, .08), ve
     let link = v.q.y > 0.;
     let ps = v.q.x + select(0., uu / max(v.h[la], .01) * .5, link);
     let k = exp(-(ps - fr) * (ps - fr) * 1.6);
-    ec += vec3f(.3, 1., .72) * select((k * 3. + .1) * pm, k * 7. * strip, link);
+    ec += vec3f(.3, 1., .72) * select((k * 2.3 + .1) * pm, k * 5.5 * strip, link);
   }
   if ((fl & 16u) != 0u) {   // ring oscillator
     let x = fract(t * .9 - v.q.z);
@@ -361,7 +375,7 @@ fn metal_glow(p: vec3f, n: vec3f, me: f32, al: vec3f) -> vec3f { return plights(
   c = mix(c, vec3f(.003, .005, .009) + vec3f(.02, .04, .07) * pow(.5 + .5 * cos(th * 110.), 6.), lens);
   c += vec3f(.07, .075, .085) * smoothstep(.315, .325, th) * (1. - smoothstep(.35, .36, th));
   let kl = dot(d, LD);
-  c += LC * (smoothstep(.99955, .99975, kl) * 9. + pow(max(kl, 0.), 400.) * .5);   // the fibre lamp
+  c += LC * (smoothstep(.99955, .99975, kl) * 5. + pow(max(kl, 0.), 400.) * .28);   // the fibre lamp
   return vec4f(fogit(c, d, 1e4), 1.);
 }
 
@@ -467,7 +481,7 @@ ${W_FOG}
   }
   let g = .55; let cs = dot(d, LD);
   let ph = (1. - g * g) / (4. * PI * pow(1. + g * g - 2. * g * cs, 1.5));
-  return vec4f(LC * acc * (min(ph, .35) * .8 + .006) * u.prm.z, z);   // capped, so looking toward the lamp does not white out; the depth goes along for the enlargement
+  return vec4f(vec3f(1.45, 1.95, 2.75) * acc * (min(ph, .15) * .8 + .006) * u.prm.z, z);   // capped, so looking toward the lamp does not white out; the depth goes along for the enlargement
 }
 `;
 
@@ -516,11 +530,12 @@ const W_DOF = /*wgsl*/`
 @vertex fn vfull(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   return vec4f(f32((i << 1u) & 2u) * 2. - 1., f32(i & 2u) * 2. - 1., 0., 1.);
 }
+fn soft(z: f32) -> f32 { return smoothstep(2.5, 9., pp[2].x * pp[2].z / max(z, 1e-9)) * pp[2].w * .24 * step(1e-4, pp[2].y); }
 // blur radius in screen pixels: how far (in diopters) this pixel's depth is from the focus plane; things in front blur less
 fn coc(uv: vec2f) -> f32 {
   let z = textureLoad(dep, vec2i(clamp(uv, vec2f(0.), vec2f(.9999)) * pp[1].zw), 0);
   let dq = z / pp[2].z - pp[2].x;
-  return min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w);
+  return max(min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w), soft(z));
 }
 @fragment fn fdof(@builtin(position) fp: vec4f) -> @location(0) vec4f {
   let uv = fp.xy * 2. / pp[1].zw; let px = .5 / pp[1].zw;
@@ -561,16 +576,19 @@ const W_POST = /*wgsl*/`
   var c = vec3f(textureSampleLevel(hdr, smp, uv - o * ca, 0.).r, textureSampleLevel(hdr, smp, uv, 0.).g, textureSampleLevel(hdr, smp, uv + o * ca, 0.).b);
   let z = textureLoad(dep, vec2i(min(uv * pp[1].zw, pp[1].zw - 1.)), 0);
   let dq = z / pp[2].z - pp[2].x;   // this pixel's own blur decides how much of the blurred image it takes
-  c = mix(c, textureSampleLevel(dof, smp, uv, 0.).rgb, smoothstep(.5, 1.7, min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w)));
+  // (things many times farther than the focus plane are always a little soft: at that size their fine patterns would only crawl)
+  let sf = smoothstep(2.5, 9., pp[2].x * pp[2].z / max(z, 1e-9)) * pp[2].w * .24 * step(1e-4, pp[2].y);
+  c = mix(c, textureSampleLevel(dof, smp, uv, 0.).rgb, smoothstep(.5, 1.7, max(min(abs(dq) * pp[2].y * select(1., .3, dq > 0.), pp[2].w), sf)));
   c += textureSampleLevel(blm, smp, uv, 0.).rgb * pp[0].y;
-  // the shafts are marched at low resolution: enlarging them, each pixel listens mostly to the neighbours at its own depth,
-  // so a near beam in front of bright haze keeps a clean edge instead of a staircase
-  let rd = vec2f(textureDimensions(ray)); let rp = uv * rd - .5; let ri = floor(rp); let rf = rp - ri;
+  // the shafts are marched at low resolution with a jittered start. Enlarging them, each pixel averages the nine nearest
+  // samples (which cancels the jitter) and listens mostly to those at its own depth, so a near beam in front of bright
+  // haze keeps a clean edge instead of a staircase
+  let rd = vec2f(textureDimensions(ray)); let rp = uv * rd - .5; let ri = floor(rp + .5);
   var rc = vec3f(0.); var rw = 0.;
-  for (var k = 0; k < 4; k++) {
-    let o = vec2f(f32(k & 1), f32(k >> 1));
-    let t = textureLoad(ray, vec2i(clamp(ri + o, vec2f(0.), rd - 1.)), 0);
-    let w = (mix(1. - rf.x, rf.x, o.x) * mix(1. - rf.y, rf.y, o.y) + .02) / (.03 + abs(t.a - z) / max(max(t.a, z), 1e-6));
+  for (var k = 0; k < 9; k++) {
+    let q = ri + vec2f(f32(k % 3), f32(k / 3)) - 1.;
+    let t = textureLoad(ray, vec2i(clamp(q, vec2f(0.), rd - 1.)), 0);
+    let w = exp(-dot(q - rp, q - rp) * .6) / (.03 + abs(t.a - z) / max(max(t.a, z), 1e-6));
     rc += t.rgb * w; rw += w;
   }
   c += rc / rw * pp[0].z;

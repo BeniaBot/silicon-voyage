@@ -50,8 +50,7 @@
 |---|---|
 | ![רחוב הנתונים](.github/screenshots/street.jpg) | ![המטמון המשותף](.github/screenshots/cache.jpg) |
 | ![מאיץ הבינה](.github/screenshots/ai.jpg) | ![חוטי הזהב](.github/screenshots/gold-wires.jpg) |
-
-![הסלילים והכתובת](.github/screenshots/inscription.jpg)
+| ![הסלילים והכתובת](.github/screenshots/inscription.jpg) | ![מחט הבדיקה](.github/screenshots/probe.jpg) |
 
 ### ⚛️ בתוך הטרנזיסטור
 

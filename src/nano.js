@@ -147,7 +147,7 @@ struct FO { @location(0) c: vec4f, @builtin(frag_depth) d: f32 }
 @fragment fn fatom(v: AV) -> FO {
   let d2 = dot(v.uv, v.uv); let nz = sqrt(max(1. - d2, 0.));
   let n = normalize(u.rgt.xyz) * v.uv.x + normalize(u.upv.xyz) * v.uv.y - u.fwd.xyz * nz;
-  let a = clamp((1. - sqrt(d2)) * v.re.x * u.prm.y / distance(u.cam.xyz, v.wp), 0., 1.) * ${AA > 1 ? 'mix(1., .55, nz * nz)' : '1.'};
+  let a = clamp((1. - sqrt(d2)) * v.re.x * u.prm.y / distance(u.cam.xyz, v.wp), 0., 1.) * ${AA > 1 ? '.75' : '1.'};
   if (a < ${AA > 1 ? '.02' : '.5'}) { discard; }
   var o: FO;
   o.c = vec4f(shade(v.c, n, v.wp - u.fwd.xyz * nz * v.re.x, v.re.y), a);

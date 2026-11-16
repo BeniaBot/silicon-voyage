@@ -219,18 +219,18 @@ let yaw = 0, pitch = 0, yawT = 0, pitchT = 0, snap = true;
 // stations: x, y, z, yaw, pitch, name
 const POSES = [
   [55, 3.2, 122, 0, .05, tr('רחוב הנתונים', 'Data street')],
-  [25, 8.3, 24, -.785, -.44, tr('המטמון המשותף', 'The shared cache')],
+  [22, 11.5, 20, -.785, -.6, tr('המטמון המשותף', 'The shared cache')],
   [66, 8, 44, .785, -.34, tr('מאיץ הבינה', 'The AI accelerator')],
   [1, 72, -50, 0, -.78, tr('הסלילים והכתובת', 'Coils & writing')],
   [158, 60, -104, 2.11, -.26, tr('חוטי הזהב', 'Gold wires')],
   [-170, 125, 230, .636, -.42, tr('מבט על', 'From above')],
   [118, 23.5, 108, -1.2, -.06, tr('בין הקומות', 'Between the layers')],
-  [-116, 47, 140, -2.12, .03, tr('מחט הבדיקה', 'The probe needle')],
+  [-160, 70, 150, -2.4, -.5, tr('מחט הבדיקה', 'The probe needle')],
 ];
 // one more step down, inside a transistor (the 7th field marks the world)
 const NCH = nanoChannel(-16, -8), NCT = nanoChannel(-4.2, -2.2);
 POSES.push([2, NCH[0], NCH[1], PI / 2, 0, tr('בלב הגביש', 'Heart of the crystal'), 1], [2, NCT[0], NCT[1], PI / 2 - .25, .16, tr('מתחת לשער', 'Under the gate'), 1]);
-POSES.push([0, 620, 3700, 0, -.24, tr('הלוח מבחוץ', 'The board outside')]);
+POSES.push([0, 1250, 3400, 0, -.45, tr('הלוח מבחוץ', 'The board outside')]);
 let WORLD = 0;   // 0: the chip, 1: inside a transistor
 const SAVE = [null, [2, NCT[0], NCT[1], PI / 2, .1]];   // where the camera was left in each world
 function pose(i) {
@@ -294,7 +294,7 @@ function aim(s) {
   TW = max(sstep(5, 110, outf()), sstep(92, 128, cam[1]));   // also while climbing out past the wall
   TB[0] *= 1 - TW; TB[2] *= 1 - TW; TB[1] = mix(TB[1] - 2, 10, TW);
 }
-const tourPitch = () => atan2(TB[1] - cam[1], hypot(TB[0] - cam[0], TB[2] - cam[2])) - clamp((cam[1] - 30) / 70, 0, .5) * (1 - TW);
+const tourPitch = () => atan2(TB[1] - cam[1], hypot(TB[0] - cam[0], TB[2] - cam[2])) - clamp((cam[1] - 20) / 50, 0, .62) * (1 - TW);   // climbing, it keeps looking down at the chip, not up into the haze
 
 // ---------------------------------------------------------------- collisions: a sphere against boxes and tubes
 const RAD = .35, STAMP = new Uint32Array(NI);
@@ -311,13 +311,16 @@ function pushBox(i, p) {
   if (d2 >= RAD * RAD) return;
   if (d2 > 1e-10) { const d = sqrt(d2), f = (RAD - d) / d; ex *= f; ey *= f; ez *= f; }
   else {   // inside: leave through the nearest face
-    const px = hx - abs(dx), py = hy - abs(dy), pz = hz - abs(dz);
+    // (never down through the bottom of something that stands on the ground: there is no room under it)
+    const px = hx - abs(dx), pz = hz - abs(dz), py = dy > 0 || IF[o + 1] - hy - 2 * RAD >= ground(p) ? hy - abs(dy) : 1e9;
     ex = ey = ez = 0;
     if (px < py && px < pz) ex = (px + RAD) * (sign(dx) || 1); else if (py < pz) ey = (py + RAD) * (sign(dy) || 1); else ez = (pz + RAD) * (sign(dz) || 1);
   }
   if (yw) { const wx = ex * cs - ez * sn; ez = ex * sn + ez * cs; ex = wx; }
   p[0] += ex; p[1] += ey; p[2] += ez;
 }
+// the height of the ground under p: the die, the pad it is glued to, the floor of the package, the board
+const ground = p => { const m = max(abs(p[0]), abs(p[2])); return m < 200 ? 0 : m < 236 ? -8 : m < 332 ? -10 : -16; };
 function collide(p) {
   p[0] = clamp(p[0], -9000, 9000); p[2] = clamp(p[2], -9000, 9000); p[1] = clamp(p[1], -15.6, 6000);
   stampN++;
@@ -331,6 +334,15 @@ function collide(p) {
   for (const w of BOND) {   // tubes: push out of the nearest point on each capsule
     if (hypot(p[0] - w.c[0], p[1] - w.c[1], p[2] - w.c[2]) > w.R + RAD) continue;
     const P = w.p, R = w.r;
+    if (w.f) {   // a can: a solid upright cylinder with flat ends
+      const y1 = P[P.length - 2], rm = max(...R), dx = p[0] - P[0] || 1e-6, dz = p[2] - P[2], d = hypot(dx, dz), k = max(0, 1 - rm / d);
+      const ex = dx * k, ez = dz * k, ey = p[1] - clamp(p[1], P[1], y1), e = hypot(ex, ey, ez);
+      if (e >= RAD) continue;
+      if (e > 1e-6) { const f = (RAD - e) / e; p[0] += ex * f; p[1] += ey * f; p[2] += ez * f; }
+      else if (y1 - p[1] < rm - d) p[1] = y1 + RAD;   // inside: out through the top when that is nearer, otherwise through the side
+      else { const f = (rm + RAD) / d; p[0] = P[0] + dx * f; p[2] = P[2] + dz * f; }
+      continue;
+    }
     for (let j = 0, i = 0; j + 5 < P.length; j += 3, i++) {
       const ax = P[j], ay = P[j + 1], az = P[j + 2], bx = P[j + 3] - ax, by = P[j + 4] - ay, bz = P[j + 5] - az;
       const t = clamp(((p[0] - ax) * bx + (p[1] - ay) * by + (p[2] - az) * bz) / (bx * bx + by * by + bz * bz), 0, 1);
@@ -338,6 +350,21 @@ function collide(p) {
       if (d < rr2 && d > 1e-6) { const f = (rr2 - d) / d; p[0] += ex * f; p[1] += ey * f; p[2] += ez * f; }
     }
   }
+}
+// is the point p inside a box or a can? Whatever the pushing above did, a step never ends inside something solid
+const inBox = (i, p) => {
+  const o = i * IST, yw = IF[o + 7];
+  if (abs(p[1] - IF[o + 1]) >= IF[o + 5]) return false;
+  let dx = p[0] - IF[o], dz = p[2] - IF[o + 2];
+  if (yw) { const c = cos(yw), s = sin(yw), l = dx * c + dz * s; dz = -dx * s + dz * c; dx = l; }
+  return abs(dx) < IF[o + 4] && abs(dz) < IF[o + 6];
+};
+function solid(p) {
+  const gx = floor((p[0] - G0) / GS), gz = floor((p[2] - G0) / GS);
+  if (gx >= 0 && gx < GN && gz >= 0 && gz < GN) { const c = gz * GN + gx; for (let k = GRID.st[c]; k < GRID.st[c + 1]; k++) if (inBox(GRID.it[k], p)) return true; }
+  for (let i = NOUT0; i < NI; i++) if (inBox(i, p)) return true;
+  for (const w of BOND) if (w.f && p[1] > w.p[1] && p[1] < w.p[w.p.length - 2] && hypot(p[0] - w.p[0], p[2] - w.p[2]) < max(...w.r)) return true;
+  return false;
 }
 
 // distance along a ray to the first box (a walk through the collision grid, slab test per box)
@@ -423,7 +450,8 @@ function nearestTour() {
 }
 const K = c => keys.has(c) ? 1 : 0;
 // camera axes, refreshed after every move: forward, right, up
-let FX = 0, FY = 0, FZ = -1, RX = 1, RZ = 0, UX = 0, UY = 1, UZ = 0;
+let FX = 0, FY = 0, FZ = -1, RX = 1, RZ = 0, UX = 0, UY = 1, UZ = 0, wasIn = false;
+const PREV = [0, 0, 0];
 function move(dt) {
   const mf = K('KeyW') + K('ArrowUp') - K('KeyS') - K('ArrowDown') - stick.dy;
   const mr = K('KeyD') + K('ArrowRight') - K('KeyA') - K('ArrowLeft') + stick.dx;
@@ -456,7 +484,14 @@ function move(dt) {
     vel[1] += ((FY * mf + mu) * sp - vel[1]) * k;
     vel[2] += ((FZ * mf + RZ * mr) * sp - vel[2]) * k;
     const n = max(1, ceil(hypot(vel[0], vel[1], vel[2]) * dt / (.2 * (WORLD ? 1 : big))));
-    for (let i = 0; i < n; i++) { for (let j = 0; j < 3; j++) cam[j] += vel[j] * dt / n; WORLD ? ncollide(cam) : collide(cam); }
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < 3; j++) { PREV[j] = cam[j]; cam[j] += vel[j] * dt / n; }
+      if (WORLD) { ncollide(cam); continue; }
+      collide(cam);
+      const s = solid(cam);
+      if (s && !wasIn) for (let j = 0; j < 3; j++) cam[j] = PREV[j];   // no way in: stay where the step began
+      else wasIn = s;                                                 // (a station that starts inside something may still fly out)
+    }
   }
   const k = snap ? 1 : 1 - exp(-dt * 16);
   yaw += (yawT - yaw) * k; pitch += (pitchT - pitch) * k;
@@ -681,9 +716,9 @@ else { tourAt(0, cam); aim(0); yaw = yawT = atan2(TB[0] - cam[0], cam[2] - TB[2]
 window.__sv = {   // dev hooks for tools/shoot.mjs
   pose: go, frames: () => frameN, world: w => dive(w), state: () => ({ world: WORLD, tour, s: +tourS.toFixed(0), dive: +TDIVE.toFixed(0), len: +TLEN.toFixed(0), cam: cam.map(v => +v.toFixed(1)) }),
   jump: s => { tourS = s; },
-  at: (x, y, z, a, b) => { cam[0] = x; cam[1] = y; cam[2] = z; yaw = yawT = a; pitch = pitchT = b; tour = false; snap = true; }, setT: t => { T = t; FIXT = true; }, sound, audio: () => AC && AC.state, audioStats,
+  at: (x, y, z, a, b) => { cam[0] = x; cam[1] = y; cam[2] = z; yaw = yawT = a; pitch = pitchT = b; tour = false; snap = true; vel.fill(0); }, setT: t => { T = t; FIXT = true; }, sound, audio: () => AC && AC.state, audioStats,
   push: (x, y, z) => { const p = [x, y, z]; collide(p); return p.map(v => +v.toFixed(3)); },
-  focus: () => +(1 / focD).toFixed(2),
+  focus: () => +(1 / focD).toFixed(2), inside: () => solid(cam),
   tour: s => { tour = false; tourAt(s, cam); aim(s); yaw = yawT = atan2(TB[0] - cam[0], cam[2] - TB[2]); pitch = pitchT = tourPitch(); snap = true; return TLEN; },
   // the tour distance reached after t seconds (it speeds up outside), or the whole lap's duration when t is missing
   tourT: t => { let s = 0, i = 0; for (; t === undefined ? s < TLEN : i < t * 10; i++) { tourAt(s, TA); s += .9 * (1 + max(max(abs(TA[0]), abs(TA[2])) - 320, TA[1] - 135, 0) / 50); } return t === undefined ? i / 10 : s; },

@@ -10,7 +10,7 @@ const SI = 0, CELL = 1, CU = 2, VIA = 3, AL = 4, AU = 5, CER = 6, SRAM = 7, PEB 
   DCAP = 12, PADL = 13, HOT = 14, BUF = 15, EPX = 16, CAPB = 17, NEEDLE = 18, GOLDL = 19,
   PCB = 20, TRACE = 21, EPOXY = 22, SILK = 23, SLEEVE = 24, SOLDER = 25;
 // flags: data pulses, blinking, clock, systolic wave, ring oscillator, floor (kept out of the occlusion bake)
-const F_PULSE = 1 << 16, F_BLINK = 1 << 17, F_CLOCK = 1 << 18, F_WAVE = 1 << 19, F_RING = 1 << 20, F_FLOOR = 1 << 21;
+const F_PULSE = 1 << 16, F_BLINK = 1 << 17, F_CLOCK = 1 << 18, F_WAVE = 1 << 19, F_RING = 1 << 20, F_FLOOR = 1 << 21, F_TEXT = 1 << 24;
 const PC_AMBER = 1 << 22, PC_GREEN = 2 << 22, PC_WHITE = 3 << 22;   // pulse colour (cyan when none)
 
 // ---------------------------------------------------------------- the box list
@@ -137,7 +137,7 @@ function spiral(cx, cz, R, turns, w) {
 const BLK = [];
 const GLOW = [];   // light sources inside the haze: [x, y, z, power, r, g, b, radius]
 const HOTS = [];   // hot spots on the floor: [x, z]
-const BOND = [];   // every tube again as a chain of capsules, for collisions: { p: points, r: radii, c: centre, R: reach }
+const BOND = [];   // every tube again as a chain of capsules, for collisions: { p: points, r: radii, c: centre, R: reach, f: fat }
 const TV = [], TX = [];
 let TUBE_V, TUBE_I;
 
@@ -163,7 +163,7 @@ function tube(P, R, RS, mat) {
     TX.push(p, q, p + RS, q, q + RS, p + RS);
   }
   for (let i = 0; i < n; i++) rad = max(rad, hypot(P[i * 3] - cx, P[i * 3 + 1] - cy, P[i * 3 + 2] - cz) + R[i]);
-  BOND.push({ p: P, r: R, c: [cx, cy, cz], R: rad });
+  BOND.push({ p: P, r: R, c: [cx, cy, cz], R: rad, f: max(...R) > 20 });   // the fat ones are the upright cans on the board
 }
 const AN = [-50, -180, 50, -60];   // analog block: the power grid stays away from the coils
 
@@ -240,7 +240,7 @@ function analog() {
   spiral(-24, -130, 19, 3.5, 2.4); spiral(24, -130, 19, 3.5, 2.4); spiral(0, -166, 10, 2.5, 1.8);
   for (let i = 0; i < 9; i++) {   // ring oscillator: a light runs around it
     const a = i / 9 * PI * 2;
-    box(cos(a) * 5, .7, -84 + sin(a) * 5, .9, .7, .9, CELL | F_RING, 6, 0, i / 9, 0, -a);
+    box(-36 + cos(a) * 4.4, .7, -98 + sin(a) * 4.4, .8, .7, .8, CELL | F_RING, 6, 0, i / 9, 0, -a);
   }
   for (let z = -103; z < -90; z += 3.4) for (const s of [-1, 1]) bb(s * 5 - 4, 0, z, s * 5 + 4, .45, z + 1.5, DCAP);   // resistor ladders
   for (const [ax, bx] of [[-48, -12], [12, 48]])
@@ -432,7 +432,7 @@ function inscribe(txt, x0, z0, s, y, m, th = .9, k = 1) {
     }
     for (const [k, v0] of open) if (!now.has(k)) {
       const [a, u] = k.split(',').map(Number);
-      bb(x0 + a * s, y, z0 + v0 * s, x0 + u * s, y + th, z0 + v * s, m); open.delete(k);
+      bb(x0 + a * s, y, z0 + v0 * s, x0 + u * s, y + th, z0 + v * s, m | F_TEXT); open.delete(k);
     }
     for (const k of now) if (!open.has(k)) open.set(k, v);
   }
@@ -484,17 +484,18 @@ function board() {
   }
   // the probe's holder: a collar on the needle, an arm reaching out over the wall, a post and its foot on the board
   {
-    const [ex, ey, ez] = PEND, px = -570, pz = ez + ex - px;
-    box(ex, ey, ez, 11, 11, 11, SOLDER | F, 0, 0, 0, 0, PI / 4);
-    box((ex + px) / 2, ey, (ez + pz) / 2, 8, 8, hypot(ex - px, ez - pz) / 2 + 8, EPOXY | F, 0, 0, 0, 0, PI / 4);
-    box(px, (ey + Y) / 2 + 9, pz, 19, (ey - Y) / 2 + 9, 19, SOLDER | F, 0, 0, 0, 0, PI / 4);
-    box(px, Y + 6, pz, 75, 6, 75, EPOXY | F, 0, 0, 0, 0, PI / 4);
+    const [ex, ey, ez] = PEND, px = -570, pz = ez + ex - px, e = norm3([-.5, .6, .62]), at = s => [ex + e[0] * s, ey + e[1] * s, ez + e[2] * s];
+    tube([...at(-13), ...at(-12), ...at(7), ...at(8)], [3.4, 6.5, 6.5, .01], 16, EPOXY);        // the clamp around the needle
+    tube([ex, ey, ez, px, ey, pz], [3.6, 3.6], 14, NEEDLE);                                        // a steel rod out over the wall
+    box(px, ey, pz, 10, 10, 10, EPOXY | F, 0, 0, 0, 0, PI / 4);                                     // the joint
+    tube([px, Y, pz, px, ey + 18, pz, px, ey + 18, pz], [7.5, 7.5, .01], 16, NEEDLE);               // the post
+    tube([px, Y, pz, px, Y + 9, pz, px, Y + 13, pz, px, Y + 13, pz], [62, 62, 56, .01], 28, EPOXY);  // its round foot
   }
   // a part with two soldered ends, lying along x (ax = 1) or z: ceramic capacitors and chip resistors
   const two = (x, z, l, wd, h, ax, body, mark) => {
     const e = l * .2, S = (c, hl, hw, y0, y1, m) => ax ? bb(x + c - hl, y0, z - hw, x + c + hl, y1, z + hw, m) : bb(x - hw, y0, z + c - hl, x + hw, y1, z + c + hl, m);
-    S(0, l / 2 - e, wd / 2, Y + 5, Y + h, body | F);
-    for (const s of [-1, 1]) { S(s * (l / 2 - e / 2), e / 2, wd / 2 + 3, Y + 2, Y + h + 2, SOLDER | F); S(s * (l / 2 + e * .1), e * .75, wd / 2 + 16, Y, Y + 1.6, SOLDER | F); }
+    S(0, l / 2 - e, wd / 2, Y, Y + h, body | F);
+    for (const s of [-1, 1]) { S(s * (l / 2 - e / 2), e / 2, wd / 2 + 3, Y, Y + h + 2, SOLDER | F); S(s * (l / 2 + e * .1), e * .75, wd / 2 + 16, Y, Y + 1.6, SOLDER | F); }
     if (mark) inscribe(mark, x - 130 * 2.6, z - 17 * 2.6, 2.6, Y + h, SILK | F, .5);
     const m = 75; ax ? ink(x - l / 2 - m, z - wd / 2 - m, x + l / 2 + m, z + wd / 2 + m) : ink(x - wd / 2 - m, z - l / 2 - m, x + wd / 2 + m, z + l / 2 + m);
   };
@@ -534,7 +535,7 @@ function board() {
   inscribe('16.000', 1750 - 130 * 6.5, 1130 - 17 * 6.5, 6.5, Y + 360, EPOXY | F, .4); label('Y1', 1750, 1560);
   two(1150, -1500, 620, 330, 300, 0, CAPB); label('C4', 1150, -2060);
   // south: the board's name in white ink, a capacitor, a few stray vias
-  inscribe('מסע בתוך שבב', -130 * 14, 2000, 14, Y, SILK | F, .8, 2);
+  inscribe('מסע בתוך שבב', -130 * 14, 2000, 14, Y, SILK | F, .8, 4);
   two(2900, 2300, 620, 330, 300, 1, CAPB); label('C5', 2900, 2690);
   for (let k = 0; k < 18; k++) { const x = rr(-3400, 3400), z = rr(-3600, 3600); if (max(abs(x), abs(z)) > 1900) hole(x, z); }
 }
@@ -598,7 +599,7 @@ function genWorld() {
   bb(-.5, CKY[0] + CKT, -.5, .5, CKY[1], .5, VIA);
   power(); buses(); rim(); probe(); board();
   rseed(141);
-  inscribe('מסע בתוך שבב', -28, -79, .3, 33.4, GOLDL, .9, 2);
+  inscribe('מסע בתוך שבב', -28, -79, .3, 33.4, GOLDL, .9, 3);
   art(-38, -77.6, .8, 33.4, GOLDL);
   TUBE_V = new Float32Array(TV); TUBE_I = new Uint32Array(TX);
 }
