@@ -521,10 +521,10 @@ function focus(dt) {
 
 // ---------------------------------------------------------------- per-frame uniforms
 const PRJ = new Float32Array(16), VW = new Float32Array(16), VP = new Float32Array(16);
-const FOVY = 1.08, NEAR = .04, TY = tan(FOVY / 2);
+const NEAR = .04;
 function uniforms() {
-  const asp = CW / CH, tx = TY * asp;
-  persp(PRJ, FOVY, asp, NEAR); view(VW, cam, yaw, pitch); mmul(VP, PRJ, VW);
+  const asp = CW / CH, TY = tan(.54) / sqrt(min(1, asp)), tx = TY * asp;   // a screen taller than it is wide (a phone held upright) gets a wider view
+  persp(PRJ, 2 * atan(TY), asp, NEAR); view(VW, cam, yaw, pitch); mmul(VP, PRJ, VW);
   UF.set(VP, 0);
   UF[32] = cam[0]; UF[33] = cam[1]; UF[34] = cam[2]; UF[35] = T;
   UF[36] = FX; UF[37] = FY; UF[38] = FZ; UF[39] = NEAR;
@@ -703,6 +703,7 @@ function start() {
   if (FINE.matches) grab();
 }
 $('go').onclick = start;
+$('mb').onclick = () => menu(true);   // touch screens have no Esc
 for (const b of $('q').children) b.onclick = () => { store('sv-q', b.dataset.q); location.reload(); };
 for (const b of $('snd').children) b.onclick = () => { setMute(b.dataset.s === '0'); syncMenu(); };
 for (const b of $('lang').children) b.onclick = () => { store('sv-lang', b.dataset.l); location.reload(); };
@@ -723,7 +724,7 @@ try { localStorage.removeItem('sv-loading'); } catch {}
 if (SHOT) { go((+QS.get('pose') || 1) - 1); $('hud').hidden = true; if (QS.has('dof')) DOF = QS.get('dof') === '1'; }
 else { tourAt(0, cam); aim(0); yaw = yawT = atan2(TB[0] - cam[0], cam[2] - TB[2]); pitch = pitchT = tourPitch(); }
 window.__sv = {   // dev hooks for tools/shoot.mjs
-  pose: go, frames: () => frameN, world: w => dive(w), state: () => ({ world: WORLD, tour, s: +tourS.toFixed(0), dive: +TDIVE.toFixed(0), len: +TLEN.toFixed(0), cam: cam.map(v => +v.toFixed(1)) }),
+  pose: go, frames: () => frameN, world: w => dive(w), state: () => ({ world: WORLD, tour, s: +tourS.toFixed(0), dive: +TDIVE.toFixed(0), len: +TLEN.toFixed(0), cam: cam.map(v => +v.toFixed(1)), yaw: +yawT.toFixed(2), menu: !playing }),
   jump: s => { tourS = s; },
   at: (x, y, z, a, b) => { cam[0] = x; cam[1] = y; cam[2] = z; yaw = yawT = a; pitch = pitchT = b; tour = false; snap = true; vel.fill(0); }, setT: t => { T = t; FIXT = true; }, sound, audio: () => AC && AC.state, audioStats,
   push: (x, y, z) => { const p = [x, y, z]; collide(p); return p.map(v => +v.toFixed(3)); },

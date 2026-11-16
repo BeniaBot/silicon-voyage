@@ -1,6 +1,7 @@
 // Renders the world in a separate Chrome with its own empty profile (nothing of the user's is touched)
 // and saves screenshots of the stations, or runs the 45 s benchmark flight.
 //   node tools/shoot.mjs [--out shots] [--poses 1,2,3] [--q 1] [--t 12] [--w 1600] [--h 900] [--extra "&scale=.75"] [--bench] [--tour 18] [--clip 6,11,12,4] [--headful]
+//   --phone makes the page believe it is on a touch screen (with --w 390 --h 844 for a phone held upright); --touch then drives it with fingers
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -63,8 +64,11 @@ const ev = async expr => (await send('Runtime.evaluate', { expression: expr, ret
 const flush = () => { for (const l of logs.splice(0)) console.log(l); };
 
 await send('Page.enable'); await send('Runtime.enable'); await send('Log.enable');
-await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-const url = `http://127.0.0.1:${SPORT}/index.html?${BENCH ? 'bench' : has('ui') || has('dive') || has('fly') || has('hud') ? 'ui' : 'shot'}&q=${Q}${BENCH || has('dive') || has('fly') || has('hud') ? '' : '&t=' + T}${arg('extra', '')}`;
+const PHONE = has('phone') || has('touch');
+await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: PHONE ? 2 : 1, mobile: PHONE });
+if (PHONE) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+const LIVE = has('dive') || has('fly') || has('hud') || has('touch');
+const url = `http://127.0.0.1:${SPORT}/index.html?${BENCH ? 'bench' : has('ui') || LIVE ? 'ui' : 'shot'}${has('q') || !PHONE ? '&q=' + Q : ''}${BENCH || LIVE ? '' : '&t=' + T}${arg('extra', '')}`;
 await send('Page.navigate', { url });
 const t0 = Date.now(), want = BENCH ? '!!window.__bench' : 'window.__ready === true', limit = BENCH ? 120000 : 90000;
 while (!(await ev(want).catch(() => false))) {
@@ -149,7 +153,53 @@ if (has('hud')) {   // the screen as a visitor sees it in flight: labels, height
   for (const p of arg('hud', '1').split(',')) { await ev(`__sv.pose(${p - 1})`); await sleep(1800); await shoot(`hud${p}.jpg`); }
   flush(); done(0);
 }
-if (has('ui')) { await sleep(+arg('wait', 1500)); await shoot('ui.jpg'); flush(); done(0); }
+if (has('touch')) {   // a phone: the menu fits and scrolls, a tap starts the flight, one finger flies, another looks around, the corner button brings the menu back
+  const touch = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id })) });
+  const tap = async sel => {
+    const [x, y] = await ev(`(() => { const e = document.querySelector('${sel}'); e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+    await touch('touchStart', [[x, y, 9]]); await sleep(60); await touch('touchEnd', []); await sleep(500);
+  };
+  let bad = 0;
+  const say = (ok, what, extra = '') => { bad += !ok; console.log((ok ? 'ok   ' : 'FAIL ') + what, extra); };
+  await sleep(1200);
+  const m = await ev(`(() => {
+    const c = document.querySelector('.card'), r = c.getBoundingClientRect();
+    const o = [...c.querySelectorAll('button,a,.row,.seg,.ttl,.sub')].filter(e => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > r.right + 1 || e.getBoundingClientRect().left < r.left - 1).map(e => e.id || e.className || e.textContent.slice(0, 20));
+    return { coarse: matchMedia('(pointer:coarse)').matches, lv: document.querySelector('#q .on')?.dataset.q, vw: innerWidth, vh: innerHeight, card: [r.x, r.y, r.width, r.height].map(Math.round),
+      scroll: [c.scrollHeight, c.clientHeight, c.scrollWidth, c.clientWidth], page: [document.documentElement.scrollWidth, document.documentElement.scrollHeight], spill: o };
+  })()`);
+  console.log(JSON.stringify(m));
+  say(m.coarse, 'the page sees a touch screen'); say(m.lv === '2' || has('q'), 'low detail is picked by itself', 'level ' + m.lv);
+  say(m.card[0] >= 0 && m.card[0] + m.card[2] <= m.vw && m.card[1] >= 0 && m.card[1] + m.card[3] <= m.vh, 'the menu card is inside the screen');
+  say(m.scroll[2] <= m.scroll[3] + 1 && m.page[0] <= m.vw, 'nothing scrolls sideways'); say(!m.spill.length, 'nothing spills out of the card', m.spill.join(' | '));
+  await shoot('phone-menu.jpg');
+  await ev("document.querySelector('.card').scrollTo(0, 1e5)"); await sleep(300); await shoot('phone-menu2.jpg');
+  say(await ev("(() => { const c = document.querySelector('.card').getBoundingClientRect(), a = document.querySelector('.src').getBoundingClientRect(); return a.bottom <= c.bottom + 1; })()"), 'the last line of the menu can be scrolled into view');
+  await tap('#go');
+  let s = await ev('__sv.state()');
+  say(!s.menu, 'a tap on the start button starts the flight'); say(await ev('__sv.audio()') === 'running', 'sound runs after the tap', await ev('__sv.audio()'));
+  await ev('__sv.pose(1)'); await sleep(1800); await shoot('phone-hud.jpg');
+  const a = await ev('__sv.state()');
+  await touch('touchStart', [[W * .25, H * .6, 1]]); await sleep(50); await touch('touchMove', [[W * .25, H * .6 - 80, 1]]); await sleep(1500);
+  const b = await ev('__sv.state()');
+  say(Math.hypot(b.cam[0] - a.cam[0], b.cam[1] - a.cam[1], b.cam[2] - a.cam[2]) > 1, 'a finger on the left half flies forward', JSON.stringify(a.cam) + ' -> ' + JSON.stringify(b.cam));
+  await touch('touchStart', [[W * .25, H * .6 - 80, 1], [W * .75, H * .5, 2]]); await sleep(50); await touch('touchMove', [[W * .25, H * .6 - 80, 1], [W * .75 + 90, H * .5, 2]]); await sleep(400);
+  const c = await ev('__sv.state()');
+  say(abs(c.yaw - b.yaw) > .3, 'a second finger on the right half turns the view', b.yaw + ' -> ' + c.yaw);
+  await touch('touchEnd', []); await sleep(900);
+  const d = await ev('__sv.state()'); await sleep(700); const e = await ev('__sv.state()');
+  say(Math.hypot(e.cam[0] - d.cam[0], e.cam[2] - d.cam[2]) < 1, 'lifting the fingers stops the flight', JSON.stringify(d.cam) + ' -> ' + JSON.stringify(e.cam));
+  await tap('#mb');
+  say((await ev('__sv.state()')).menu, 'the corner button opens the menu');
+  await tap('#st2 button');
+  s = await ev('__sv.state()'); await sleep(2500);
+  say(!s.menu && (await ev('__sv.state()')).world === 1, 'a transistor station in the menu dives in'); await shoot('phone-nano.jpg');
+  await tap('#mb'); await tap('#tourb'); await sleep(1500);
+  s = await ev('__sv.state()'); say(!s.menu && s.tour, 'the guided tour starts from the menu');
+  console.log(bad ? bad + ' FAILED' : 'the phone checks pass');
+  flush(); done(bad ? 1 : 0);
+}
+if (has('ui')) { await sleep(+arg('wait', 1500)); console.log('menu card: content ' + await ev("(c => c.scrollHeight + ' px in a box of ' + c.clientHeight)(document.querySelector('.card'))")); if (has('scroll')) await ev("document.querySelector('.card').scrollTo(0, 1e5)"); await shoot('ui.jpg'); flush(); done(0); }
 if (has('at')) {   // free camera positions to try: "x,y,z,yaw,pitch;..."
   let k = 0;
   for (const p of arg('at', '').split(';')) { await ev(`__sv.at(${p})`); await shoot(`at${k++}.jpg`); }

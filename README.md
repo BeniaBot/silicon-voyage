@@ -123,7 +123,7 @@ node tools/shoot.mjs --hud 2                     # the screen as a visitor sees 
 
 * **רעיון, בימוי והחלטות** - [BeniaBot](https://github.com/BeniaBot). וייב קודינג מלא.
 * **קוד, עיצוב, שיידרים וצליל** - **Claude Fable 5.2** של Anthropic, בתוך Claude Code. הוא כתב את העולם, את הכלים שבודקים אותו, וגם את הדף הזה.
-* **הטיוטה הראשונה** - שני הסבבים הראשונים נכתבו עם Claude Opus 5.5. משם Fable 5.2 עבד על הכול מקצה לקצה והרחיב: הטרנזיסטור, הלוח שבחוץ, הסיור, העברית והאנגלית.
+* **השראה** - [Abyssal Garden](https://github.com/Noniv/abyssal-garden) של [Noniv](https://github.com/Noniv): עולם תת־ימי שלם בקובץ HTML אחד, בלי מנוע ובלי קבצים מצורפים. משם באו הרעיון, מבנה הפרויקט, שיטת העבודה (שער ביצועים ומבקר שרואה רק צילומים) וכמה שורות עזר בצליל. העולם עצמו, מהלוח ועד האטומים, נבנה כאן מחדש.
 * **ביקורת** - מבקרים נפרדים (Claude Sonnet) שרואים רק צילומי מסך. בלי קוד ובלי הסברים.
 * **רישיון** - [MIT](LICENSE): מותר להשתמש, לשנות ולהפיץ.
 
@@ -225,7 +225,7 @@ The tools run the world in a separate, hidden Chrome and save the pictures in `s
 
 * **Idea, direction and decisions** - [BeniaBot](https://github.com/BeniaBot). Vibe coding all the way.
 * **Code, design, shaders and sound** - **Claude Fable 5.2** by Anthropic, working in Claude Code. It wrote the world, the tools that test it, and this page too.
-* **The first draft** - the first two passes were written with Claude Opus 5.5. From there Fable 5.2 reworked everything end to end and took it further: the transistor, the board outside, the tour, Hebrew and English.
+* **Inspiration** - [Abyssal Garden](https://github.com/Noniv/abyssal-garden) by [Noniv](https://github.com/Noniv): a whole underwater world in one HTML file, with no engine and no attached files. The idea came from there, and so did the shape of the project, the way of working (a performance gate and a critic who sees only screenshots) and a few small sound helpers. The world itself, from the board down to the atoms, was built anew here.
 * **Critique** - separate reviewers (Claude Sonnet) who see only screenshots. No code, no explanations.
 * **License** - [MIT](LICENSE): use it, change it, share it.
 

@@ -1,7 +1,7 @@
 // ============================================================================
 // math: random numbers, noise, matrices
 // ============================================================================
-const { sin, cos, tan, abs, min, max, floor, ceil, sqrt, exp, pow, hypot, atan2, asin, PI, round, sign } = Math;
+const { sin, cos, tan, abs, min, max, floor, ceil, sqrt, exp, pow, hypot, atan, atan2, asin, PI, round, sign } = Math;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x, mix = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
