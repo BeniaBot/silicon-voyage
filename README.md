@@ -116,6 +116,7 @@ node tools/shoot.mjs --check                     # collisions, audio level, focu
 * **הרעיון** - מתכון קטן שבונה עולם גדול. הקובץ לא מכיל את העולם, רק את ההוראות לבנות אותו.
 * **השיטה** - לבנות, לצלם מתחנות קבועות ולאורך מסלול, לתת למבקר שרואה רק תמונות, לתקן, ולמדוד ביצועים על המחשב שהעולם אמור לרוץ עליו.
 * **מי כתב** - וייב קודינג מלא, עם Claude.
+* **רישיון** - [MIT](LICENSE): מותר להשתמש, לשנות ולהפיץ.
 
 > 📌 **שורה תחתונה:** פחות מ־100 קילובייט, שלושה קני מידה, אפס קבצים מצורפים. תלחצו על הקישור ותטוסו.
 
@@ -208,5 +209,6 @@ The tools run the world in a separate, hidden Chrome and save the pictures in `s
 * **The idea** - a small recipe that builds a big world. The file does not hold the world, only the instructions for building it.
 * **The method** - build, photograph from fixed stations and along a path, hand the pictures to a critic who sees nothing else, fix, and measure performance on the machine the world is meant to run on.
 * **Who wrote it** - vibe coding all the way, with Claude.
+* **License** - [MIT](LICENSE): use it, change it, share it.
 
 > 📌 **Bottom line:** under 100 KB, three scales, zero attached files. Click the link and fly.
